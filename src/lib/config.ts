@@ -1,2 +1,2 @@
-export const SUPABASE_URL = 'https://zlcdmlblgdtvjadqcbga.supabase.co'
-export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpsY2RtbGJsZ2R0dmphZHFjYmdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2OTQwMzksImV4cCI6MjA3ODI3MDAzOX0.wFaxQEBsodLerl2CQEmqcHevNuzjWjuNR1tEQCTTL3Q'
+export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
