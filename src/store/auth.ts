@@ -34,6 +34,9 @@ interface AuthState {
 // Safely get onboarding status from localStorage
 const getOnboardingStatus = (): boolean => {
   try {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return false
+    }
     return localStorage.getItem('onboarding_completed') === 'true'
   } catch (error) {
     console.warn('[Auth] localStorage not available:', error)
@@ -43,6 +46,7 @@ const getOnboardingStatus = (): boolean => {
 
 // Track if we're already loading user data to prevent duplicate requests
 let isLoadingUserData = false
+let authInitialized = false
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -179,7 +183,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     // Clear onboarding status safely
     try {
-      localStorage.removeItem('onboarding_completed')
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('onboarding_completed')
+      }
     } catch (error) {
       console.warn('[Auth] Could not clear localStorage:', error)
     }
@@ -271,7 +277,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   completeOnboarding: () => {
     try {
-      localStorage.setItem('onboarding_completed', 'true')
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('onboarding_completed', 'true')
+      }
     } catch (error) {
       console.warn('[Auth] Could not save to localStorage:', error)
     }
@@ -328,6 +336,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   initializeAuth: async () => {
+    // Prevent multiple initializations
+    if (authInitialized) {
+      console.log('[Auth] Already initialized, skipping')
+      return
+    }
+    
+    authInitialized = true
+    
     try {
       console.log('[Auth] Starting initialization...')
       set({ isLoading: true })
@@ -367,46 +383,59 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }))
 
-// Initialize auth state on app start
-console.log('[Auth] Initializing auth store...')
-useAuthStore.getState().initializeAuth()
+// Defer initialization until after React app mounts
+if (typeof window !== 'undefined') {
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Auth] Initializing auth store after DOM ready...')
+      setTimeout(() => useAuthStore.getState().initializeAuth(), 0)
+    })
+  } else {
+    // DOM already loaded
+    console.log('[Auth] Initializing auth store...')
+    setTimeout(() => useAuthStore.getState().initializeAuth(), 0)
+  }
+}
 
 // Listen to auth changes - prevent infinite loops with flag
-supabase.auth.onAuthStateChange((_event, session) => {
-  console.log('[Auth] State change event:', _event, 'hasSession:', !!session)
-  
-  const { setUser } = useAuthStore.getState()
-  
-  if (_event === 'SIGNED_OUT') {
-    console.log('[Auth] User signed out event')
-    setUser(null)
-    useAuthStore.setState({ 
-      profile: null, 
-      achievements: [],
-      isLoading: false
-    })
-    isLoadingUserData = false
-  } else if (session?.user && _event === 'SIGNED_IN') {
-    // Only load on SIGNED_IN event, not USER_UPDATED to prevent infinite loops
-    console.log('[Auth] Auth event with user:', session.user.email)
-    setUser(session.user)
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((_event, session) => {
+    console.log('[Auth] State change event:', _event, 'hasSession:', !!session)
     
-    // Prevent duplicate loading
-    if (!isLoadingUserData) {
-      isLoadingUserData = true
-      const { loadProfile, loadAchievements } = useAuthStore.getState()
+    const { setUser } = useAuthStore.getState()
+    
+    if (_event === 'SIGNED_OUT') {
+      console.log('[Auth] User signed out event')
+      setUser(null)
+      useAuthStore.setState({ 
+        profile: null, 
+        achievements: [],
+        isLoading: false
+      })
+      isLoadingUserData = false
+    } else if (session?.user && _event === 'SIGNED_IN') {
+      // Only load on SIGNED_IN event, not USER_UPDATED to prevent infinite loops
+      console.log('[Auth] Auth event with user:', session.user.email)
+      setUser(session.user)
       
-      Promise.all([
-        loadProfile(),
-        loadAchievements()
-      ])
-        .catch(err => console.error('Failed to load user data:', err))
-        .finally(() => {
-          isLoadingUserData = false
-        })
+      // Prevent duplicate loading
+      if (!isLoadingUserData) {
+        isLoadingUserData = true
+        const { loadProfile, loadAchievements } = useAuthStore.getState()
+        
+        Promise.all([
+          loadProfile(),
+          loadAchievements()
+        ])
+          .catch(err => console.error('Failed to load user data:', err))
+          .finally(() => {
+            isLoadingUserData = false
+          })
+      }
+    } else if (session?.user && _event !== 'SIGNED_IN') {
+      // For other events, just update the user without reloading data
+      setUser(session.user)
     }
-  } else if (session?.user && _event !== 'SIGNED_IN') {
-    // For other events, just update the user without reloading data
-    setUser(session.user)
-  }
-})
+  })
+}
