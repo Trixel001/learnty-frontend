@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Brain, Zap, Target, Clock, CheckCircle, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/store/auth'
 import { supabase } from '@/lib/supabase'
+import { SUPABASE_URL } from '@/lib/config'
 import toast from 'react-hot-toast'
 
 interface S3GeneratorProps {
@@ -44,7 +45,7 @@ export default function S3Generator({ book, onSuccess, onClose }: S3GeneratorPro
       setProgress(40)
       setCurrentStep('Generating micro-learning milestones...')
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-s3-milestones`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-s3-milestones`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
