@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageCircle, X, Send, Sparkles, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { SUPABASE_URL } from '@/lib/config'
 import toast from 'react-hot-toast'
 
 interface Message {
@@ -69,14 +70,6 @@ export default function AIChatbot({
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return
 
-    // Validate environment variables
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    if (!supabaseUrl) {
-      toast.error('Configuration error: Missing Supabase URL')
-      console.error('VITE_SUPABASE_URL is not defined')
-      return
-    }
-
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -97,7 +90,7 @@ export default function AIChatbot({
       }
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/ai-chatbot`,
+        `${SUPABASE_URL}/functions/v1/ai-chatbot`,
         {
           method: 'POST',
           headers: {
