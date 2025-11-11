@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { SUPABASE_URL } from '@/lib/config';
 import { AlertCircle, CheckCircle, Brain, Loader2, Trophy, ChevronRight } from 'lucide-react';
 import { useReviewModal } from '@/hooks/useReviewModal';
 import ReviewModal from '@/components/ReviewModal';
@@ -86,7 +87,7 @@ export default function AIQuizGenerator({ bookId, bookTitle, extractedText }: AI
       }
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-ai-quiz`,
+        `${SUPABASE_URL}/functions/v1/generate-ai-quiz`,
         {
           method: 'POST',
           headers: {
