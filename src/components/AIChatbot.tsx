@@ -51,7 +51,7 @@ export default function AIChatbot({
     {
       id: '1',
       role: 'assistant',
-      content: "Hello! I'm your learning assistant. I can help you understand concepts, explain features, and guide you through your learning journey. How can I help you today?",
+      content: "Hello! I'm your learning assistant. I can help you understand concepts step by step. Ask me anything, and I'll guide you through the explanation. What would you like to learn about?",
       timestamp: new Date()
     }
   ])
@@ -77,7 +77,11 @@ export default function AIChatbot({
       timestamp: new Date()
     }
 
+    // Add user message immediately to conversation
     setMessages(prev => [...prev, userMessage])
+    
+    // Clear input and set loading state
+    const messageToSend = inputMessage
     setInputMessage('')
     setIsLoading(true)
 
@@ -89,6 +93,15 @@ export default function AIChatbot({
         throw new Error('Please sign in to use the AI assistant')
       }
 
+      // Prepare conversation history for backend
+      // Include ALL messages (excluding the initial greeting) to maintain full context
+      const conversationHistory = messages
+        .slice(1) // Skip the initial greeting message
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+
       const response = await fetch(
         `${SUPABASE_URL}/functions/v1/ai-chatbot`,
         {
@@ -98,8 +111,8 @@ export default function AIChatbot({
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            message: inputMessage,
-            conversationHistory: messages.slice(-6) // Send last 6 messages for context
+            message: messageToSend,
+            conversationHistory: conversationHistory
           })
         }
       )
@@ -133,8 +146,9 @@ export default function AIChatbot({
       }
       
       // Safe access to nested response data
-      const responseContent = data?.data?.response
+      const responseContent = data?.data?.response || data?.response
       if (!responseContent) {
+        console.error('Unexpected response structure:', data)
         throw new Error('AI response is empty. Please try again.')
       }
       
@@ -145,7 +159,9 @@ export default function AIChatbot({
         timestamp: new Date()
       }
 
+      // Add assistant's response to conversation
       setMessages(prev => [...prev, assistantMessage])
+      
     } catch (error) {
       console.error('Error sending message:', error)
       const errorMsg = error instanceof Error ? error.message : 'Failed to get AI response'
@@ -154,12 +170,13 @@ export default function AIChatbot({
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I couldn't process that request. Please try again.",
+        content: "I'm sorry, I encountered an error. Please try asking your question again.",
         timestamp: new Date()
       }
       
       setMessages(prev => [...prev, errorMessage])
     } finally {
+      // Always re-enable input after response (whether success or error)
       setIsLoading(false)
     }
   }
@@ -180,7 +197,6 @@ export default function AIChatbot({
         return 'top-4 sm:top-6 right-4 sm:right-6'
       case 'bottom-right':
       default:
-        // Position above the 4-tab nav which is at bottom-0
         return 'bottom-24 right-4 sm:right-6'
     }
   }
@@ -194,7 +210,6 @@ export default function AIChatbot({
         return 'top-16 sm:top-20 right-4 sm:right-6'
       case 'bottom-right':
       default:
-        // Position window above the chatbot button (which is at bottom-24)
         return 'bottom-40 right-4 sm:right-6'
     }
   }
@@ -235,8 +250,8 @@ export default function AIChatbot({
                   <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-white font-bold text-sm sm:text-base">AI Learning Assistant</h3>
-                  <p className="text-white/80 text-xs hidden sm:block">Always here to help</p>
+                  <h3 className="text-white font-bold text-sm sm:text-base">AI Learning Tutor</h3>
+                  <p className="text-white/80 text-xs hidden sm:block">Step-by-step guidance</p>
                 </div>
               </div>
               <button
@@ -266,7 +281,7 @@ export default function AIChatbot({
                     {message.role === 'assistant' && (
                       <div className="flex items-center gap-2 mb-1">
                         <Sparkles className="w-3 h-3 text-primary" />
-                        <span className="text-xs font-medium text-primary">AI Assistant</span>
+                        <span className="text-xs font-medium text-primary">AI Tutor</span>
                       </div>
                     )}
                     <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
@@ -286,7 +301,7 @@ export default function AIChatbot({
                   <div className="bg-card rounded-2xl px-4 py-3 shadow-md">
                     <div className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      <span className="text-sm text-muted-foreground">Thinking...</span>
+                      <span className="text-sm text-muted-foreground">Tutor is thinking...</span>
                     </div>
                   </div>
                 </motion.div>
@@ -302,9 +317,9 @@ export default function AIChatbot({
                   value={inputMessage}
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything..."
+                  placeholder={isLoading ? "Tutor is responding..." : "Type your response..."}
                   disabled={isLoading}
-                  className="flex-1 resize-none border border-border rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-purple-500 max-h-24 sm:max-h-32 disabled:opacity-50"
+                  className="flex-1 resize-none border border-border rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-purple-500 max-h-24 sm:max-h-32 disabled:opacity-50 disabled:bg-muted"
                   rows={1}
                 />
                 <motion.button
@@ -312,11 +327,16 @@ export default function AIChatbot({
                   whileTap={{ scale: 0.95 }}
                   onClick={sendMessage}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="w-9 h-9 sm:w-10 sm:h-10 bg-primary rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-9 h-9 sm:w-10 sm:h-10 bg-primary rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
                 >
                   <Send className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </motion.button>
               </div>
+              {isLoading && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  The tutor will ask follow-up questions to guide you
+                </p>
+              )}
             </div>
           </motion.div>
         )}
